@@ -3,6 +3,7 @@ let globalResults = [];
 window.globalUrls = [];
 window.globalKeywords = [];
 window.globalCategories = [];
+window.globalStartSTT = 1;
 
 document.getElementById('btnStop').addEventListener('click', () => {
     isRunning = false;
@@ -25,6 +26,7 @@ async function startAnalysis() {
     }
 
     isRunning = true;
+    window.globalStartSTT = parseInt(document.getElementById('startSTT').value) || 1;
     window.globalUrls = rawUrls;
     window.globalKeywords = rawKeywords;
     window.globalCategories = rawCategories;
@@ -162,6 +164,7 @@ function analyzeSEO(doc, url, keyword, expectedCategory) {
 
     let score = 100;
     let details = [];
+    let errorMap = {};
 
     // --- CHECK CẤU TRÚC URL SLUG ---
     let urlStatus = 'none';
@@ -599,7 +602,7 @@ function analyzeSEO(doc, url, keyword, expectedCategory) {
         score: Math.max(0, score),
         urlStatus, titleStatus, descStatus, h1Status, h2h3Status, imgStatus, featImgStatus, wordStatus, kwStatus, sapoStatus, catMatchStatus,
         categoryText, schemaText,
-        details,
+        details, errorMap,
         url
     };
 }
@@ -687,23 +690,62 @@ async function recheckRow(i) {
 
 function generateTextReport() {
     let report = [];
+    let startSTT = window.globalStartSTT || 1;
+
+    // Hàm phân loại lỗi theo hạng mục
+    function categorizeError(msg) {
+        let m = msg.replace(/[❌⚠️✅]/g, '').trim();
+        if (m.includes('Cấu trúc URL') || m.includes('Đuôi URL') || m.includes('slug')) return 'Cấu trúc URL';
+        if (m.includes('Title') && !m.includes('Meta')) return 'Title';
+        if (m.includes('Meta Description') || m.includes('Description')) return 'Meta Description';
+        if (m.includes('H1')) return 'H1';
+        if (m.includes('H2') || m.includes('H3')) return 'H2/H3';
+        if (m.includes('Ảnh đại diện') || m.includes('og:image') || m.includes('Featured')) return 'Ảnh đại diện';
+        if (m.includes('alt') || m.includes('ảnh')) return 'Alt Ảnh';
+        if (m.includes('Số từ')) return 'Số từ';
+        if (m.includes('Từ khóa')) return 'Từ khóa';
+        if (m.includes('Sapo')) return 'Sapo';
+        if (m.includes('Danh mục')) return 'Danh mục';
+        return 'Khác';
+    }
+
     globalResults.forEach((res, idx) => {
         if (!res) return;
+        let stt = startSTT + idx;
         let url = window.globalUrls[idx];
-        if (res.error || res.score < 100) {
-            report.push(`[${idx + 1}] Bài viết: ${url}`);
-            if (res.error) {
-                report.push(`  - Lỗi kết nối mạng hoặc bị Firewall (Cloudflare) chặn.`);
-            } else {
-                let errors = res.details.filter(d => d.includes('❌') || d.includes('⚠️'));
-                if (errors.length > 0) {
-                    errors.forEach(e => report.push(`  ${e}`));
-                } else {
-                    report.push(`  - Điểm: ${res.score}/100`);
-                }
-            }
-            report.push(''); // Dòng trống
+
+        if (res.error) {
+            report.push(`${stt}. ${url}`);
+            report.push(`1. "Kết nối"`);
+            report.push(`- Lỗi kết nối mạng hoặc bị Firewall (Cloudflare) chặn.`);
+            report.push('');
+            return;
         }
+
+        // Lọc chỉ lấy lỗi
+        let errors = res.details.filter(d => d.includes('❌') || d.includes('⚠️'));
+        if (errors.length === 0) return; // Bài không lỗi thì bỏ qua
+
+        // Nhóm lỗi theo hạng mục
+        let grouped = {};
+        errors.forEach(e => {
+            let cat = categorizeError(e);
+            if (!grouped[cat]) grouped[cat] = [];
+            // Lấy nội dung lỗi (bỏ icon đầu)
+            let cleanMsg = e.replace(/^[❌⚠️✅]\s*/, '').trim();
+            grouped[cat].push(cleanMsg);
+        });
+
+        report.push(`${stt}. ${url}`);
+        let catIdx = 1;
+        for (let cat in grouped) {
+            report.push(`${catIdx}. "${cat}"`);
+            grouped[cat].forEach(err => {
+                report.push(`- ${err}`);
+            });
+            catIdx++;
+        }
+        report.push('');
     });
     
     let reportBox = document.getElementById('reportText');

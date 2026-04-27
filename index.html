@@ -273,7 +273,13 @@
                 </div>
             </div>
 
-            <button id="btnStart" class="btn" style="margin-top: 25px;" onclick="startAnalysis()">🚀 Bắt đầu Quét SEO</button>
+            <div style="display:flex; align-items:center; gap:15px; margin-top:25px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                    <label for="startSTT" style="color:var(--text-muted); font-size:14px; white-space:nowrap;">STT bắt đầu:</label>
+                    <input type="number" id="startSTT" value="1" min="1" style="width:70px; padding:10px 12px; background:#0f172a; border:1px solid var(--border); color:var(--text-main); border-radius:8px; font-size:16px; text-align:center;">
+                </div>
+                <button id="btnStart" class="btn" style="margin:0;" onclick="startAnalysis()">🚀 Bắt đầu Quét SEO</button>
+            </div>
             
             <div class="progress-bar-container" id="progressContainer" style="height:auto; background:none; margin-top:20px; display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
