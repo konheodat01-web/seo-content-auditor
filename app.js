@@ -734,30 +734,102 @@ function generateTextReport() {
     let report = [];
     let startSTT = window.globalStartSTT || 1;
 
+    // Hàm rút gọn 1 dòng lỗi chi tiết thành cụm từ ngắn gọn
+    function shorten(msg) {
+        let m = msg.replace(/^[❌⚠️✅]\s*/, '').replace(/\.$/, '').trim();
+
+        // --- URL ---
+        if (/Cấu trúc URL.*không chứa từ khóa/i.test(m)) return 'URL thiếu từ khóa';
+        if (/Đuôi URL.*số rác/i.test(m)) return 'URL có số rác';
+        if (/URL không hợp lệ/i.test(m)) return 'URL lỗi';
+
+        // --- Title ---
+        if (/Thiếu thẻ Title/i.test(m)) return 'Thiếu title';
+        if (/Title dài.*ký tự/i.test(m)) {
+            let len = m.match(/(\d+)\s*ký tự/);
+            let n = len ? parseInt(len[1]) : 0;
+            return n < 45 ? 'Title ngắn' : 'Title dài';
+        }
+
+        // --- Meta Description ---
+        if (/Thiếu thẻ Meta Description/i.test(m)) return 'Thiếu meta';
+        if (/Description dài.*ký tự/i.test(m)) {
+            let len = m.match(/(\d+)\s*ký tự/);
+            let n = len ? parseInt(len[1]) : 0;
+            return n < 140 ? 'Meta ngắn' : 'Meta dài';
+        }
+
+        // --- H1 ---
+        if (/Thiếu thẻ H1/i.test(m)) return 'Thiếu H1';
+        if (/quá nhiều thẻ H1/i.test(m)) {
+            let cnt = m.match(/\((\d+)\s*thẻ\)/);
+            return cnt ? `Có ${cnt[1]} H1` : 'Nhiều H1';
+        }
+
+        // --- H2/H3 ---
+        if (/H2.*chỉ có duy nhất 1 thẻ H3/i.test(m)) return 'H2 chỉ có 1 H3';
+        if (/H3.*đứng lơ lửng/i.test(m)) return 'H3 đứng 1 mình';
+
+        // --- Ảnh ---
+        if (/không có ảnh nào/i.test(m)) return 'Không có ảnh';
+        if (/ảnh.*thiếu.*alt/i.test(m)) {
+            let cnt = m.match(/(\d+)\/(\d+)/);
+            return cnt ? `${cnt[1]}/${cnt[2]} ảnh thiếu alt` : 'Ảnh thiếu alt';
+        }
+
+        // --- Featured Image ---
+        if (/Thiếu Ảnh đại diện/i.test(m)) return 'Thiếu ảnh đại diện';
+
+        // --- Số từ ---
+        if (/Số từ.*\d+/i.test(m)) {
+            let cnt = m.match(/Số từ:\s*(\d+)/i);
+            return cnt ? `Chỉ ${cnt[1]} từ` : 'Ít từ';
+        }
+
+        // --- Từ khóa ---
+        if (/Từ khóa không nằm ở đầu Title/i.test(m)) return 'TK không đầu title';
+        if (/Từ khóa không.*Meta Description/i.test(m)) return 'Meta thiếu TK';
+        if (/Từ khóa không.*câu đầu.*Sapo/i.test(m)) return 'Sapo thiếu TK';
+        if (/Không tìm thấy đoạn Sapo.*từ khóa/i.test(m)) return 'Không có sapo';
+        if (/Từ khóa không.*kết luận/i.test(m)) return 'Kết luận thiếu TK';
+        if (/Không tìm thấy.*H2.*kết luận/i.test(m)) return 'Không có H2 kết luận';
+
+        // --- Sapo link ---
+        if (/Không tìm thấy đoạn văn Sapo/i.test(m)) return 'Không có sapo';
+        if (/Sapo bị lỗi.*Thiếu link Từ khóa.*Thiếu Link.*trang chủ/i.test(m)) return 'Sapo thiếu 2 link';
+        if (/Sapo bị lỗi.*Thiếu link Từ khóa/i.test(m)) return 'Sapo thiếu link TK';
+        if (/Sapo bị lỗi.*Thiếu Link.*trang chủ/i.test(m)) return 'Sapo thiếu link home';
+        if (/Không thể phân tích link.*Sapo/i.test(m)) return 'Sapo lỗi URL';
+
+        // --- Danh mục ---
+        if (/Chưa có danh mục/i.test(m) || /Không phân loại/i.test(m)) return 'Thiếu danh mục';
+        if (/Danh mục SAI/i.test(m) || /Danh mục không khớp/i.test(m)) return 'Sai danh mục';
+
+        // Fallback: cắt ngắn nếu quá dài
+        return m.length > 30 ? m.substring(0, 30) + '...' : m;
+    }
+
     globalResults.forEach((res, idx) => {
         if (!res) return;
         let stt = startSTT + idx;
-        let url = window.globalUrls[idx];
 
         if (res.error) {
-            report.push(`STT ${stt}: Lỗi kết nối mạng hoặc bị Firewall chặn`);
+            report.push(`STT ${stt}: Lỗi kết nối`);
             return;
         }
 
-        // Lọc chỉ lấy lỗi
         let errors = res.details.filter(d => d.includes('❌') || d.includes('⚠️'));
-        if (errors.length === 0) return; // Bài không lỗi thì bỏ qua
+        if (errors.length === 0) return;
 
-        // Rút gọn thông báo lỗi để hiển thị trên 1 dòng
-        let shortErrors = errors.map(e => {
-            let cleanMsg = e.replace(/^[❌⚠️✅]\s*/, '').replace(/\.$/, '').trim();
-            // Rút gọn bớt một số câu quá dài nếu cần
-            if(cleanMsg.includes('Chưa có danh mục')) return 'Thiếu danh mục';
-            if(cleanMsg.includes('Danh mục không khớp')) return 'Sai danh mục';
-            return cleanMsg;
+        // Rút gọn + gộp trùng lặp (ví dụ nhiều H3 đứng 1 mình)
+        let shortList = errors.map(shorten);
+        let unique = [];
+        let seen = {};
+        shortList.forEach(s => {
+            if (!seen[s]) { seen[s] = true; unique.push(s); }
         });
 
-        report.push(`STT ${stt}: ${shortErrors.join(' + ')}`);
+        report.push(`STT ${stt}: ${unique.join('+')}`);
     });
     
     let reportBox = document.getElementById('reportText');
