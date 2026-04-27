@@ -588,7 +588,14 @@ function analyzeSEO(doc, url, keyword, expectedCategory) {
         let actualCatLower = categoryText.toLowerCase().trim();
         let expectedCatLower = expectedCategory.toLowerCase().trim();
         // So khớp: danh mục thực tế phải chứa danh mục mong muốn (hỗ trợ cả "Cha > Con")
-        if (actualCatLower.includes(expectedCatLower) || expectedCatLower.includes(actualCatLower)) {
+        let isMatch = actualCatLower.includes(expectedCatLower) || expectedCatLower.includes(actualCatLower);
+        
+        // Ngoại lệ: nếu yêu cầu là "trang" và thực tế là "không phân loại"
+        if (!isMatch && expectedCatLower === 'trang' && actualCatLower === 'không phân loại') {
+            isMatch = true;
+        }
+
+        if (isMatch) {
             catMatchStatus = 'pass';
             details.push(`✅ Danh mục khớp: "${categoryText}" đúng với yêu cầu "${expectedCategory}".`);
         } else {
