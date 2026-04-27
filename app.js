@@ -739,7 +739,7 @@ function generateTextReport() {
         let m = msg.replace(/^[❌⚠️✅]\s*/, '').replace(/\.$/, '').trim();
 
         // --- URL ---
-        if (/Cấu trúc URL.*không chứa từ khóa/i.test(m)) return 'URL thiếu từ khóa';
+        if (/Cấu trúc URL.*không chứa từ khóa/i.test(m)) return 'URL thiếu Key';
         if (/Đuôi URL.*số rác/i.test(m)) return 'URL có số rác';
         if (/URL không hợp lệ/i.test(m)) return 'URL lỗi';
 
@@ -768,7 +768,7 @@ function generateTextReport() {
 
         // --- H2/H3 ---
         if (/H2.*chỉ có duy nhất 1 thẻ H3/i.test(m)) return 'H2 chỉ có 1 H3';
-        if (/H3.*đứng lơ lửng/i.test(m)) return 'H3 đứng 1 mình';
+        if (/H3.*đứng lơ lửng/i.test(m)) return 'sai cấu trúc h2/h3';
 
         // --- Ảnh ---
         if (/không có ảnh nào/i.test(m)) return 'Không có ảnh';
@@ -782,23 +782,22 @@ function generateTextReport() {
 
         // --- Số từ ---
         if (/Số từ.*\d+/i.test(m)) {
-            let cnt = m.match(/Số từ:\s*(\d+)/i);
-            return cnt ? `Chỉ ${cnt[1]} từ` : 'Ít từ';
+            return 'nội dung ngắn';
         }
 
         // --- Từ khóa ---
-        if (/Từ khóa không nằm ở đầu Title/i.test(m)) return 'TK không đầu title';
-        if (/Từ khóa không.*Meta Description/i.test(m)) return 'Meta thiếu TK';
-        if (/Từ khóa không.*câu đầu.*Sapo/i.test(m)) return 'Sapo thiếu TK';
+        if (/Từ khóa không nằm ở đầu Title/i.test(m)) return 'Sai quy chuẩn tiêu đề';
+        if (/Từ khóa không.*Meta Description/i.test(m)) return 'Meta thiếu Key';
+        if (/Từ khóa không.*câu đầu.*Sapo/i.test(m)) return 'Sapo thiếu Key';
         if (/Không tìm thấy đoạn Sapo.*từ khóa/i.test(m)) return 'Không có sapo';
-        if (/Từ khóa không.*kết luận/i.test(m)) return 'Kết luận thiếu TK';
+        if (/Từ khóa không.*kết luận/i.test(m)) return 'Kết luận thiếu Key';
         if (/Không tìm thấy.*H2.*kết luận/i.test(m)) return 'Không có H2 kết luận';
 
         // --- Sapo link ---
         if (/Không tìm thấy đoạn văn Sapo/i.test(m)) return 'Không có sapo';
-        if (/Sapo bị lỗi.*Thiếu link Từ khóa.*Thiếu Link.*trang chủ/i.test(m)) return 'Sapo thiếu 2 link';
-        if (/Sapo bị lỗi.*Thiếu link Từ khóa/i.test(m)) return 'Sapo thiếu link TK';
-        if (/Sapo bị lỗi.*Thiếu Link.*trang chủ/i.test(m)) return 'Sapo thiếu link home';
+        if (/Sapo bị lỗi.*Thiếu link Từ khóa.*Thiếu Link.*trang chủ/i.test(m)) return 'Sai link chính nó + Sai anchor';
+        if (/Sapo bị lỗi.*Thiếu link Từ khóa/i.test(m)) return 'Sai link chính nó';
+        if (/Sapo bị lỗi.*Thiếu Link.*trang chủ/i.test(m)) return 'Sai anchor';
         if (/Không thể phân tích link.*Sapo/i.test(m)) return 'Sapo lỗi URL';
 
         // --- Danh mục ---
