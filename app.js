@@ -733,33 +733,13 @@ function generateTextReport() {
     let report = [];
     let startSTT = window.globalStartSTT || 1;
 
-    // Hàm phân loại lỗi theo hạng mục
-    function categorizeError(msg) {
-        let m = msg.replace(/[❌⚠️✅]/g, '').trim();
-        if (m.includes('Cấu trúc URL') || m.includes('Đuôi URL') || m.includes('slug')) return 'Cấu trúc URL';
-        if (m.includes('Title') && !m.includes('Meta')) return 'Title';
-        if (m.includes('Meta Description') || m.includes('Description')) return 'Meta Description';
-        if (m.includes('H1')) return 'H1';
-        if (m.includes('H2') || m.includes('H3')) return 'H2/H3';
-        if (m.includes('Ảnh đại diện') || m.includes('og:image') || m.includes('Featured')) return 'Ảnh đại diện';
-        if (m.includes('alt') || m.includes('ảnh')) return 'Alt Ảnh';
-        if (m.includes('Số từ')) return 'Số từ';
-        if (m.includes('Từ khóa') && !m.includes('Sapo') && !m.includes('slug')) return 'Từ khóa';
-        if (m.includes('Sapo')) return 'Sapo';
-        if (m.includes('Danh mục')) return 'Danh mục';
-        return 'Khác';
-    }
-
     globalResults.forEach((res, idx) => {
         if (!res) return;
         let stt = startSTT + idx;
         let url = window.globalUrls[idx];
 
         if (res.error) {
-            report.push(`${stt}.`);
-            report.push(`1. "Kết nối"`);
-            report.push(`- Lỗi kết nối mạng hoặc bị Firewall (Cloudflare) chặn.`);
-            report.push('');
+            report.push(`STT ${stt}: Lỗi kết nối mạng hoặc bị Firewall chặn`);
             return;
         }
 
@@ -767,31 +747,16 @@ function generateTextReport() {
         let errors = res.details.filter(d => d.includes('❌') || d.includes('⚠️'));
         if (errors.length === 0) return; // Bài không lỗi thì bỏ qua
 
-        // Nhóm lỗi theo hạng mục
-        let grouped = {};
-        errors.forEach(e => {
-            let cat = categorizeError(e);
-            if (!grouped[cat]) grouped[cat] = [];
-            // Lấy nội dung lỗi (bỏ icon đầu)
-            let cleanMsg = e.replace(/^[❌⚠️✅]\s*/, '').trim();
-            grouped[cat].push(cleanMsg);
+        // Rút gọn thông báo lỗi để hiển thị trên 1 dòng
+        let shortErrors = errors.map(e => {
+            let cleanMsg = e.replace(/^[❌⚠️✅]\s*/, '').replace(/\.$/, '').trim();
+            // Rút gọn bớt một số câu quá dài nếu cần
+            if(cleanMsg.includes('Chưa có danh mục')) return 'Thiếu danh mục';
+            if(cleanMsg.includes('Danh mục không khớp')) return 'Sai danh mục';
+            return cleanMsg;
         });
 
-        report.push(`${stt}.`);
-        let catIdx = 1;
-        for (let cat in grouped) {
-            report.push(`${catIdx}. "${cat}"`);
-            grouped[cat].forEach(err => {
-                // Danh mục: chỉ ghi ngắn gọn trong report
-                if (cat === 'Danh mục') {
-                    report.push(`- Sai danh mục`);
-                } else {
-                    report.push(`- ${err}`);
-                }
-            });
-            catIdx++;
-        }
-        report.push('');
+        report.push(`STT ${stt}: ${shortErrors.join(' + ')}`);
     });
     
     let reportBox = document.getElementById('reportText');
