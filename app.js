@@ -752,7 +752,7 @@ function generateTextReport() {
 
         // --- URL ---
         if (/Cấu trúc URL.*không chứa từ khóa/i.test(m)) return 'URL thiếu Key';
-        if (/Đuôi URL.*số rác/i.test(m)) return 'URL có số rác';
+        if (/Đuôi URL.*số rác/i.test(m)) return 'sai url';
         if (/URL không hợp lệ/i.test(m)) return 'URL lỗi';
 
         // --- Title ---
@@ -885,7 +885,7 @@ function copyExcelReport() {
         function sh(msg) {
             let m = msg.replace(/^[❌⚠️✅]\s*/, '').replace(/\.$/, '').trim();
             if (/Cấu trúc URL.*không chứa từ khóa/i.test(m)) return 'URL thiếu Key';
-            if (/Đuôi URL.*số rác/i.test(m)) return 'URL có số rác';
+            if (/Đuôi URL.*số rác/i.test(m)) return 'sai url';
             if (/URL không hợp lệ/i.test(m)) return 'URL lỗi';
             if (/Thiếu thẻ Title/i.test(m)) return 'Thiếu title';
             if (/Title dài.*ký tự/i.test(m)) { let n = parseInt((m.match(/(\d+)\s*ký tự/) || [])[1]||0); return n < 45 ? 'Title ngắn' : 'Title dài'; }
