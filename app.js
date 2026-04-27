@@ -175,8 +175,8 @@ function analyzeSEO(doc, url, keyword, expectedCategory) {
             let pathname = urlObj.pathname.replace(/\/$/, '');
             let slug = pathname.substring(pathname.lastIndexOf('/') + 1).toLowerCase();
             
-            // Chuyển dấu "/" thành "-" trước, sau đó mới xóa các ký tự đặc biệt khác
-            let kwSlug = removeVietnameseTones(keyword).toLowerCase().replace(/\//g, '-').replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+            // Chuyển dấu "/", ".", "," thành "-" trước, sau đó mới xóa các ký tự đặc biệt khác
+            let kwSlug = removeVietnameseTones(keyword).toLowerCase().replace(/[\/.,:;]/g, '-').replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
             
             if (!slug.includes(kwSlug)) {
                 urlStatus = 'fail';
@@ -601,7 +601,8 @@ function analyzeSEO(doc, url, keyword, expectedCategory) {
         } else {
             catMatchStatus = 'fail';
             score -= 5;
-            details.push(`❌ Danh mục SAI: Thực tế là "${categoryText}" nhưng yêu cầu là "${expectedCategory}".`);
+            // Trong report chỉ ghi ngắn gọn, chi tiết hiện khi bấm Details
+            details.push(`❌ Danh mục SAI (thực tế: "${categoryText}", yêu cầu: "${expectedCategory}").`);
         }
     }
 
@@ -710,7 +711,7 @@ function generateTextReport() {
         if (m.includes('Ảnh đại diện') || m.includes('og:image') || m.includes('Featured')) return 'Ảnh đại diện';
         if (m.includes('alt') || m.includes('ảnh')) return 'Alt Ảnh';
         if (m.includes('Số từ')) return 'Số từ';
-        if (m.includes('Từ khóa')) return 'Từ khóa';
+        if (m.includes('Từ khóa') && !m.includes('Sapo') && !m.includes('slug')) return 'Từ khóa';
         if (m.includes('Sapo')) return 'Sapo';
         if (m.includes('Danh mục')) return 'Danh mục';
         return 'Khác';
@@ -722,7 +723,7 @@ function generateTextReport() {
         let url = window.globalUrls[idx];
 
         if (res.error) {
-            report.push(`${stt}. ${url}`);
+            report.push(`${stt}.`);
             report.push(`1. "Kết nối"`);
             report.push(`- Lỗi kết nối mạng hoặc bị Firewall (Cloudflare) chặn.`);
             report.push('');
@@ -743,12 +744,17 @@ function generateTextReport() {
             grouped[cat].push(cleanMsg);
         });
 
-        report.push(`${stt}. ${url}`);
+        report.push(`${stt}.`);
         let catIdx = 1;
         for (let cat in grouped) {
             report.push(`${catIdx}. "${cat}"`);
             grouped[cat].forEach(err => {
-                report.push(`- ${err}`);
+                // Danh mục: chỉ ghi ngắn gọn trong report
+                if (cat === 'Danh mục') {
+                    report.push(`- Sai danh mục`);
+                } else {
+                    report.push(`- ${err}`);
+                }
             });
             catIdx++;
         }
