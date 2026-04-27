@@ -25,6 +25,17 @@ async function startAnalysis() {
         return;
     }
 
+    // --- Hỏi STT bắt đầu ---
+    let userSTT = prompt("Nhập số STT bắt đầu:", document.getElementById('startSTT').value);
+    if (userSTT === null) return; 
+    let sttNum = parseInt(userSTT);
+    if (isNaN(sttNum) || sttNum < 1) {
+        alert("Vui lòng nhập một số hợp lệ (>= 1)!");
+        return;
+    }
+    document.getElementById('startSTT').value = sttNum;
+    // ----------------------
+
     isRunning = true;
     window.globalStartSTT = parseInt(document.getElementById('startSTT').value) || 1;
     window.globalUrls = rawUrls;
@@ -98,11 +109,33 @@ async function startAnalysis() {
     if (isRunning) {
         document.getElementById('progressText').innerText = `✅ Đã quét xong ${rawUrls.length} bài viết!`;
         isRunning = false;
-        document.getElementById('btnStart').disabled = false;
         document.getElementById('btnStart').innerHTML = "🚀 Chạy Lại";
+        document.getElementById('btnStart').disabled = false;
+
+        // Báo cáo Telegram
+        let summary = `<b>📊 BÁO CÁO SEO HOÀN TẤT</b>\n`;
+        summary += `Tổng số: <b>${rawUrls.length}</b> bài viết.\n`;
+        summary += `STT bắt đầu: ${sttNum}\n`;
+        summary += `Thời gian: ${new Date().toLocaleString()}\n`;
+        summary += `\nSếp vào xem chi tiết kết quả trên Web nhé!`;
+        await sendToTelegram(summary);
+        
         document.getElementById('btnStop').disabled = true;
         generateTextReport();
     }
+}
+
+
+
+function removeVietnameseTones(str) {
+    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+    str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+    str = str.replace(/đ/g, "d");
+    return str;
 }
 
 async function fetchAndAnalyze(url, keyword, expectedCategory) {
@@ -798,3 +831,33 @@ function showDetails(index) {
     document.getElementById('modalContent').innerHTML = html;
     document.getElementById('detailModal').style.display = 'flex';
 }
+
+// --- TELEGRAM LOGIC ---
+function saveTeleSettings() {
+    localStorage.setItem('tele_token_seo', document.getElementById('teleToken').value);
+    localStorage.setItem('tele_chat_id_seo', document.getElementById('teleChatId').value);
+    const st = document.getElementById('teleStatus');
+    st.style.display = 'block';
+    setTimeout(() => st.style.display = 'none', 3000);
+}
+function loadTeleSettings() {
+    document.getElementById('teleToken').value = localStorage.getItem('tele_token_seo') || '';
+    document.getElementById('teleChatId').value = localStorage.getItem('tele_chat_id_seo') || '';
+}
+async function sendToTelegram(msg) {
+    const t = localStorage.getItem('tele_token_seo'), c = localStorage.getItem('tele_chat_id_seo');
+    if(!t || !c) return;
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${t}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: c, text: msg, parse_mode: 'HTML', disable_web_page_preview: true })
+        });
+        return res.ok;
+    } catch(e) { return false; }
+}
+async function testTele() {
+    const ok = await sendToTelegram('<b>🔔 Test thành công!</b>\nTool Bulk SEO Checker đã kết nối được với Telegram của sếp.');
+    if(ok) alert("✅ Bot đã gửi tin nhắn test thành công! Sếp kiểm tra Telegram nhé.");
+    else alert("❌ Lỗi! Sếp kiểm tra lại Token hoặc Chat ID xem đúng chưa nhé.");
+}
+window.addEventListener('load', loadTeleSettings);
