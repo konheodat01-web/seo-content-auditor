@@ -101,6 +101,7 @@ async function startAnalysis() {
         } else {
             renderResult(i, result);
         }
+        generateTextReport();
 
         document.getElementById('progressBar').style.width = `${((i + 1) / rawUrls.length) * 100}%`;
         await new Promise(r => setTimeout(r, 1000)); // Delay 1s chống block
