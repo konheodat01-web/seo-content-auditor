@@ -357,27 +357,75 @@ function analyzeSEO(doc, url, keyword, expectedCategory) {
         }
     }
 
-    // 7. Keyword
+    // 7. Keyword (4 tiêu chí)
     let kwStatus = 'none';
     if (opts.kw && keyword) {
         let kwLower = keyword.toLowerCase();
-        let kwInTitle = titleText.toLowerCase().includes(kwLower);
-        let kwInDesc = descText.toLowerCase().includes(kwLower);
-        let h1Text = h1s.length > 0 ? h1s[0].textContent.toLowerCase() : '';
-        let kwInH1 = h1Text.includes(kwLower);
-        
-        let kwChecks = [];
-        if (kwInTitle) kwChecks.push('Title');
-        if (kwInDesc) kwChecks.push('Desc');
-        if (kwInH1) kwChecks.push('H1');
+        let kwErrors = [];
 
-        if (kwChecks.length === 3) {
-            kwStatus = 'pass';
-            details.push(`✅ Từ khóa xuất hiện đủ trong Title, Meta, H1.`);
+        // 7.1 Từ khóa phải xuất hiện ở ĐẦU tiêu đề
+        let titleLower = titleText.toLowerCase().trim();
+        if (titleLower.startsWith(kwLower)) {
+            details.push(`✅ Từ khóa nằm ở đầu Title.`);
         } else {
-            kwStatus = 'warn';
-            details.push(`⚠️ Từ khóa mới chỉ có ở: ${kwChecks.join(', ') || 'Không ở đâu cả'}.`);
-            score -= 5;
+            kwErrors.push('Từ khóa không nằm ở đầu Title');
+            details.push(`❌ Từ khóa không nằm ở đầu Title (Title bắt đầu bằng: "${titleText.substring(0, 30)}...").`);
+        }
+
+        // 7.2 Từ khóa phải có trong Meta Description
+        if (descText.toLowerCase().includes(kwLower)) {
+            details.push(`✅ Từ khóa có trong Meta Description.`);
+        } else {
+            kwErrors.push('Từ khóa không có trong Meta Description');
+            details.push(`❌ Từ khóa không xuất hiện trong Meta Description.`);
+        }
+
+        // 7.3 Từ khóa phải trong câu đầu tiên của Sapo
+        let paragraphs = Array.from(contentWrapper.querySelectorAll('p'));
+        let sapoP = paragraphs.find(p => p.textContent.trim().length > 20);
+        if (sapoP) {
+            let sapoText = sapoP.textContent.trim();
+            // Lấy câu đầu tiên (kết thúc bằng dấu chấm, chấm hỏi, chấm than)
+            let firstSentence = sapoText.split(/[.!?]/)[0] || sapoText;
+            if (firstSentence.toLowerCase().includes(kwLower)) {
+                details.push(`✅ Từ khóa có trong câu đầu tiên của Sapo.`);
+            } else {
+                kwErrors.push('Từ khóa không có trong câu đầu tiên của Sapo');
+                details.push(`❌ Từ khóa không xuất hiện trong câu đầu tiên của Sapo ("${firstSentence.substring(0, 50)}...").`);
+            }
+        } else {
+            kwErrors.push('Không tìm thấy đoạn Sapo');
+            details.push(`❌ Không tìm thấy đoạn Sapo để kiểm tra từ khóa.`);
+        }
+
+        // 7.4 Từ khóa phải có trong đoạn văn kết luận (nội dung sau H2 cuối cùng)
+        let allH2 = Array.from(contentWrapper.querySelectorAll('h2'));
+        if (allH2.length > 0) {
+            let lastH2 = allH2[allH2.length - 1];
+            // Thu thập text từ H2 cuối đến hết contentWrapper
+            let conclusionText = '';
+            let sibling = lastH2;
+            while (sibling) {
+                conclusionText += sibling.textContent + ' ';
+                sibling = sibling.nextElementSibling;
+            }
+            if (conclusionText.toLowerCase().includes(kwLower)) {
+                details.push(`✅ Từ khóa có trong đoạn kết luận.`);
+            } else {
+                kwErrors.push('Từ khóa không có trong đoạn kết luận');
+                details.push(`❌ Từ khóa không xuất hiện trong đoạn kết luận (phần sau H2 cuối).`);
+            }
+        } else {
+            kwErrors.push('Không tìm thấy H2 để xác định đoạn kết luận');
+            details.push(`⚠️ Không tìm thấy thẻ H2 để xác định đoạn kết luận.`);
+        }
+
+        // Tổng kết
+        if (kwErrors.length === 0) {
+            kwStatus = 'pass';
+        } else {
+            kwStatus = 'fail';
+            score -= (kwErrors.length * 3);
         }
     }
 
