@@ -60,7 +60,7 @@
 
         .input-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 20px;
         }
 
@@ -135,7 +135,7 @@
         .badge-info { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
 
         /* Dynamic Table Columns CSS */
-        .col-title, .col-desc, .col-h1, .col-h2h3, .col-img, .col-featimg, .col-word, .col-kw, .col-sapo, .col-urlslug { display: none; }
+        .col-title, .col-desc, .col-h1, .col-h2h3, .col-img, .col-featimg, .col-word, .col-kw, .col-sapo, .col-urlslug, .col-catmatch { display: none; }
         table.show-title .col-title { display: table-cell; }
         table.show-desc .col-desc { display: table-cell; }
         table.show-h1 .col-h1 { display: table-cell; }
@@ -146,6 +146,7 @@
         table.show-kw .col-kw { display: table-cell; }
         table.show-sapo .col-sapo { display: table-cell; }
         table.show-urlslug .col-urlslug { display: table-cell; }
+        table.show-catmatch .col-catmatch { display: table-cell; }
 
         /* Scrollbar styles for the container */
         .table-container::-webkit-scrollbar {
@@ -247,8 +248,12 @@
                     <textarea id="urlInput" placeholder="https://domain.com/bai-viet-1/&#10;https://domain.com/bai-viet-2/"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Từ khóa tương ứng (Mỗi dòng 1 từ khóa, để trống nếu không check)</label>
+                    <label>Từ khóa tương ứng (Mỗi dòng 1 từ khóa)</label>
                     <textarea id="keywordInput" placeholder="laptop cũ&#10;điện thoại giá rẻ"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Danh mục tương ứng (Mỗi dòng 1 danh mục)</label>
+                    <textarea id="categoryInput" placeholder="Tin tức&#10;Đánh giá sản phẩm"></textarea>
                 </div>
             </div>
             
@@ -298,6 +303,7 @@
                             <th class="col-word">Từ (>=1000)</th>
                             <th class="col-kw">Từ khóa</th>
                             <th>Danh mục</th>
+                            <th class="col-catmatch">So khớp DM</th>
                             <th>Schema</th>
                             <th class="col-sapo">Sapo (Link)</th>
                             <th class="col-urlslug">Cấu trúc URL</th>

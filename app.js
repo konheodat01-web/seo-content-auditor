@@ -2,6 +2,7 @@ let isRunning = false;
 let globalResults = [];
 window.globalUrls = [];
 window.globalKeywords = [];
+window.globalCategories = [];
 
 document.getElementById('btnStop').addEventListener('click', () => {
     isRunning = false;
@@ -16,6 +17,7 @@ async function startAnalysis() {
 
     const rawUrls = document.getElementById('urlInput').value.split('\n').map(u => u.trim()).filter(u => u);
     const rawKeywords = document.getElementById('keywordInput').value.split('\n').map(k => k.trim());
+    const rawCategories = document.getElementById('categoryInput').value.split('\n').map(c => c.trim());
 
     if (rawUrls.length === 0) {
         alert("Vui lòng nhập ít nhất 1 URL!");
@@ -25,6 +27,7 @@ async function startAnalysis() {
     isRunning = true;
     window.globalUrls = rawUrls;
     window.globalKeywords = rawKeywords;
+    window.globalCategories = rawCategories;
 
     document.getElementById('btnStart').disabled = true;
     document.getElementById('btnStart').innerHTML = "⏳ Đang quét...";
@@ -47,6 +50,7 @@ async function startAnalysis() {
         let url = rawUrls[i];
         if (!url.startsWith('http')) url = 'https://' + url;
         let keyword = rawKeywords[i] || '';
+        let expectedCategory = rawCategories[i] || '';
 
         document.getElementById('progressText').innerText = `Đang quét bài ${i + 1}/${rawUrls.length}: ${url}`;
 
@@ -65,6 +69,7 @@ async function startAnalysis() {
             <td class="col-word" id="word_${i}">...</td>
             <td class="col-kw" id="kw_${i}">...</td>
             <td id="category_${i}">...</td>
+            <td class="col-catmatch" id="catmatch_${i}">...</td>
             <td id="schema_${i}">...</td>
             <td class="col-sapo" id="sapo_${i}">...</td>
             <td class="col-urlslug" id="urlslug_${i}">...</td>
@@ -75,7 +80,7 @@ async function startAnalysis() {
         `;
         tbody.appendChild(tr);
 
-        let result = await fetchAndAnalyze(url, keyword);
+        let result = await fetchAndAnalyze(url, keyword, expectedCategory);
         globalResults[i] = result;
         
         if (result.error) {
@@ -98,7 +103,7 @@ async function startAnalysis() {
     }
 }
 
-async function fetchAndAnalyze(url, keyword) {
+async function fetchAndAnalyze(url, keyword, expectedCategory) {
     try {
         let htmlString = "";
         let proxySuccess = false;
@@ -134,14 +139,14 @@ async function fetchAndAnalyze(url, keyword) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlString, 'text/html');
 
-        return analyzeSEO(doc, url, keyword);
+        return analyzeSEO(doc, url, keyword, expectedCategory);
 
     } catch (error) {
         return { error: true, details: ["❌ Mạng lỗi hoặc bị Firewall chặn."], url: url, score: 0 };
     }
 }
 
-function analyzeSEO(doc, url, keyword) {
+function analyzeSEO(doc, url, keyword, expectedCategory) {
     const opts = {
         url: document.getElementById('chkUrl').checked,
         title: document.getElementById('chkTitle').checked,
@@ -526,9 +531,25 @@ function analyzeSEO(doc, url, keyword) {
 
     let schemaText = schemaList.size > 0 ? Array.from(schemaList).join(', ') : 'Không có Schema';
 
+    // 12. So khớp Danh mục
+    let catMatchStatus = 'none';
+    if (expectedCategory) {
+        let actualCatLower = categoryText.toLowerCase().trim();
+        let expectedCatLower = expectedCategory.toLowerCase().trim();
+        // So khớp: danh mục thực tế phải chứa danh mục mong muốn (hỗ trợ cả "Cha > Con")
+        if (actualCatLower.includes(expectedCatLower) || expectedCatLower.includes(actualCatLower)) {
+            catMatchStatus = 'pass';
+            details.push(`✅ Danh mục khớp: "${categoryText}" đúng với yêu cầu "${expectedCategory}".`);
+        } else {
+            catMatchStatus = 'fail';
+            score -= 5;
+            details.push(`❌ Danh mục SAI: Thực tế là "${categoryText}" nhưng yêu cầu là "${expectedCategory}".`);
+        }
+    }
+
     return {
         score: Math.max(0, score),
-        urlStatus, titleStatus, descStatus, h1Status, h2h3Status, imgStatus, featImgStatus, wordStatus, kwStatus, sapoStatus,
+        urlStatus, titleStatus, descStatus, h1Status, h2h3Status, imgStatus, featImgStatus, wordStatus, kwStatus, sapoStatus, catMatchStatus,
         categoryText, schemaText,
         details,
         url
@@ -568,6 +589,7 @@ function renderResult(index, data) {
     if (data.kwStatus === 'fail' || data.kwStatus === 'warn') table.classList.add('show-kw');
     if (data.sapoStatus === 'fail' || data.sapoStatus === 'warn') table.classList.add('show-sapo');
     if (data.urlStatus === 'fail' || data.urlStatus === 'warn') table.classList.add('show-urlslug');
+    if (data.catMatchStatus === 'fail' || data.catMatchStatus === 'warn') table.classList.add('show-catmatch');
 
     const row = document.getElementById(`row_${index}`);
     
@@ -588,6 +610,7 @@ function renderResult(index, data) {
     document.getElementById(`word_${index}`).innerHTML = getBadge(data.wordStatus);
     document.getElementById(`kw_${index}`).innerHTML = data.kwStatus !== 'none' ? getBadge(data.kwStatus) : '<span style="color:var(--text-muted)">-</span>';
     document.getElementById(`category_${index}`).innerHTML = `<span class="badge badge-info" style="max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${data.categoryText}">${data.categoryText}</span>`;
+    document.getElementById(`catmatch_${index}`).innerHTML = data.catMatchStatus !== 'none' ? getBadge(data.catMatchStatus) : '<span style="color:var(--text-muted)">-</span>';
     document.getElementById(`schema_${index}`).innerHTML = `<span class="badge badge-warning" style="max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${data.schemaText}">${data.schemaText}</span>`;
     document.getElementById(`sapo_${index}`).innerHTML = data.sapoStatus !== 'none' ? getBadge(data.sapoStatus) : '<span style="color:var(--text-muted)">-</span>';
     document.getElementById(`urlslug_${index}`).innerHTML = data.urlStatus !== 'none' ? getBadge(data.urlStatus) : '<span style="color:var(--text-muted)">-</span>';
@@ -596,13 +619,14 @@ function renderResult(index, data) {
 async function recheckRow(i) {
     let url = window.globalUrls[i];
     let keyword = window.globalKeywords[i] || '';
+    let expectedCategory = window.globalCategories[i] || '';
     
     // Reset dòng
     document.getElementById(`score_${i}`).innerHTML = '<span class="badge badge-warning">Đang quét...</span>';
     document.getElementById(`btn_detail_${i}`).disabled = true;
     globalResults[i] = null;
     
-    let result = await fetchAndAnalyze(url, keyword);
+    let result = await fetchAndAnalyze(url, keyword, expectedCategory);
     globalResults[i] = result;
     
     if (result.error) {
