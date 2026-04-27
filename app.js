@@ -16,11 +16,13 @@ document.getElementById('btnStop').addEventListener('click', () => {
 async function startAnalysis() {
     if (isRunning) return;
 
-    const rawUrls = document.getElementById('urlInput').value.split('\n').map(u => u.trim()).filter(u => u);
+    // Giữ nguyên dòng trống (blank line) để đếm STT đúng vị trí
+    const rawUrls = document.getElementById('urlInput').value.split('\n').map(u => u.trim());
     const rawKeywords = document.getElementById('keywordInput').value.split('\n').map(k => k.trim());
     const rawCategories = document.getElementById('categoryInput').value.split('\n').map(c => c.trim());
+    const totalNonEmpty = rawUrls.filter(u => u).length;
 
-    if (rawUrls.length === 0) {
+    if (totalNonEmpty === 0) {
         alert("Vui lòng nhập ít nhất 1 URL!");
         return;
     }
@@ -54,20 +56,30 @@ async function startAnalysis() {
     tbody.innerHTML = '';
     globalResults = [];
 
+    let checkedCount = 0;
     for (let i = 0; i < rawUrls.length; i++) {
         if (!isRunning) {
-            document.getElementById('progressText').innerText = `⛔ Đã dừng ở bài viết ${i}/${rawUrls.length}`;
+            document.getElementById('progressText').innerText = `⛔ Đã dừng ở dòng ${i}/${rawUrls.length}`;
             break;
         }
 
-        let url = rawUrls[i];
-        if (!url.startsWith('http')) url = 'https://' + url;
+        let rawUrl = rawUrls[i];
+
+        // Dòng trống: lưu null, bỏ qua kiểm tra
+        if (!rawUrl) {
+            globalResults[i] = null; // null = dòng trống
+            continue;
+        }
+
+        let url = rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl;
         let keyword = rawKeywords[i] || '';
         let expectedCategory = rawCategories[i] || '';
 
-        document.getElementById('progressText').innerText = `Đang quét bài ${i + 1}/${rawUrls.length}: ${url}`;
+        checkedCount++;
+        document.getElementById('progressText').innerText = `Đang quét ${checkedCount}/${totalNonEmpty}: ${url}`;
 
         // Add row to UI
+        let sttLabel = window.globalStartSTT + i;
         let tr = document.createElement('tr');
         tr.id = `row_${i}`;
         tr.innerHTML = `
@@ -103,19 +115,19 @@ async function startAnalysis() {
         }
         generateTextReport();
 
-        document.getElementById('progressBar').style.width = `${((i + 1) / rawUrls.length) * 100}%`;
+        document.getElementById('progressBar').style.width = `${(checkedCount / totalNonEmpty) * 100}%`;
         await new Promise(r => setTimeout(r, 1000)); // Delay 1s chống block
     }
 
     if (isRunning) {
-        document.getElementById('progressText').innerText = `✅ Đã quét xong ${rawUrls.length} bài viết!`;
+        document.getElementById('progressText').innerText = `✅ Đã quét xong ${checkedCount}/${totalNonEmpty} bài viết!`;
         isRunning = false;
         document.getElementById('btnStart').innerHTML = "🚀 Chạy Lại";
         document.getElementById('btnStart').disabled = false;
 
         // Báo cáo Telegram
         let summary = `<b>📊 BÁO CÁO SEO HOÀN TẤT</b>\n`;
-        summary += `Tổng số: <b>${rawUrls.length}</b> bài viết.\n`;
+        summary += `Tổng số: <b>${checkedCount}</b> bài viết.\n`;
         summary += `STT bắt đầu: ${sttNum}\n`;
         summary += `Thời gian: ${new Date().toLocaleString()}\n`;
         summary += `\nSếp vào xem chi tiết kết quả trên Web nhé!`;
@@ -844,6 +856,85 @@ function copyReport() {
     text.select();
     document.execCommand('copy');
     alert('Đã copy Báo cáo lỗi vào khay nhớ tạm!');
+}
+
+function copyExcelReport() {
+    let startSTT = window.globalStartSTT || 1;
+    let lines = [];
+
+    globalResults.forEach((res, idx) => {
+        // Dòng trống trong input → dòng trống trong Excel
+        if (res === null || res === undefined) {
+            lines.push('');
+            return;
+        }
+
+        if (res.error) {
+            lines.push('Lỗi kết nối');
+            return;
+        }
+
+        let errors = res.details.filter(d => d.includes('❌') || d.includes('⚠️'));
+        if (errors.length === 0) {
+            // Bài OK → ô trống trong Excel
+            lines.push('');
+            return;
+        }
+
+        // Dùng lại hàm shorten (copy inline để copyExcelReport tự đứng được)
+        function sh(msg) {
+            let m = msg.replace(/^[❌⚠️✅]\s*/, '').replace(/\.$/, '').trim();
+            if (/Cấu trúc URL.*không chứa từ khóa/i.test(m)) return 'URL thiếu Key';
+            if (/Đuôi URL.*số rác/i.test(m)) return 'URL có số rác';
+            if (/URL không hợp lệ/i.test(m)) return 'URL lỗi';
+            if (/Thiếu thẻ Title/i.test(m)) return 'Thiếu title';
+            if (/Title dài.*ký tự/i.test(m)) { let n = parseInt((m.match(/(\d+)\s*ký tự/) || [])[1]||0); return n < 45 ? 'Title ngắn' : 'Title dài'; }
+            if (/Thiếu thẻ Meta Description/i.test(m)) return 'Thiếu meta';
+            if (/Description dài.*ký tự/i.test(m)) { let n = parseInt((m.match(/(\d+)\s*ký tự/) || [])[1]||0); return n < 140 ? 'Meta ngắn' : 'Meta dài'; }
+            if (/Thiếu thẻ H1/i.test(m)) return 'Thiếu H1';
+            if (/quá nhiều thẻ H1/i.test(m)) { let c = (m.match(/\((\d+)\s*thẻ\)/) || [])[1]; return c ? `Có ${c} H1` : 'Nhiều H1'; }
+            if (/H2.*chỉ có duy nhất 1 thẻ H3/i.test(m)) return 'H2 chỉ có 1 H3';
+            if (/H3.*đứng lơ lửng/i.test(m)) return 'sai cấu trúc h2/h3';
+            if (/không có ảnh nào/i.test(m)) return 'Không có ảnh';
+            if (/ảnh.*thiếu.*alt/i.test(m)) { let c = m.match(/(\d+)\/(\d+)/); return c ? `${c[1]}/${c[2]} ảnh thiếu alt` : 'Ảnh thiếu alt'; }
+            if (/Thiếu Ảnh đại diện/i.test(m)) return 'Thiếu ảnh đại diện';
+            if (/Số từ.*\d+/i.test(m)) return 'nội dung ngắn';
+            if (/Từ khóa không nằm ở đầu Title/i.test(m)) return 'Sai quy chuẩn tiêu đề';
+            if (/Từ khóa không.*Meta Description/i.test(m)) return 'Meta thiếu Key';
+            if (/Từ khóa không.*câu đầu.*Sapo/i.test(m)) return 'Sapo thiếu Key';
+            if (/Không tìm thấy đoạn Sapo.*từ khóa/i.test(m)) return 'Không có sapo';
+            if (/Từ khóa không.*kết luận/i.test(m)) return 'Kết luận thiếu Key';
+            if (/Không tìm thấy.*H2.*kết luận/i.test(m)) return 'Không có H2 kết luận';
+            if (/Không tìm thấy đoạn văn Sapo/i.test(m)) return 'Không có sapo';
+            if (/Sapo bị lỗi.*Thiếu link Từ khóa.*Thiếu Link.*trang chủ/i.test(m)) return 'Sai link chính nó + Sai anchor';
+            if (/Sapo bị lỗi.*Thiếu link Từ khóa/i.test(m)) return 'Sai link chính nó';
+            if (/Sapo bị lỗi.*Thiếu Link.*trang chủ/i.test(m)) return 'Sai anchor';
+            if (/Không thể phân tích link.*Sapo/i.test(m)) return 'Sapo lỗi URL';
+            if (/Chưa có danh mục/i.test(m) || /Không phân loại/i.test(m)) return 'Thiếu danh mục';
+            if (/Danh mục SAI/i.test(m) || /Danh mục không khớp/i.test(m)) return 'Sai danh mục';
+            return m.length > 30 ? m.substring(0, 30) + '...' : m;
+        }
+
+        let shortList = errors.map(sh);
+        let unique = [];
+        let seen = {};
+        shortList.forEach(s => { if (!seen[s]) { seen[s] = true; unique.push(s); } });
+        lines.push(unique.join('+'));
+    });
+
+    let text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+        alert('✅ Đã copy định dạng Excel! Sếp dán thẳng vào cột trên Excel là xong.');
+    }).catch(() => {
+        // fallback
+        let ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('✅ Đã copy định dạng Excel! Sếp dán thẳng vào cột trên Excel là xong.');
+    });
 }
 
 function getBadge(status) {
